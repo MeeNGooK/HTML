@@ -1,6 +1,5 @@
 package com.meengook.instapocket;
 
-import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -8,26 +7,24 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
-import android.webkit.CookieManager;
-import android.webkit.WebStorage;
 import android.webkit.WebSettings;
-import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
-import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
-import org.json.JSONArray;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @CapacitorPlugin(name = "PocketMedia")
 public class PocketMediaPlugin extends Plugin {
     private String sharedText = "";
+    private final ExecutorService resolver = Executors.newSingleThreadExecutor();
     @Override public void load() { readShared(getActivity().getIntent()); }
     private void readShared(Intent intent) {
         if (intent != null && Intent.ACTION_SEND.equals(intent.getAction()) && "text/plain".equals(intent.getType())) {
@@ -55,24 +52,16 @@ public class PocketMediaPlugin extends Plugin {
             JSObject result = new JSObject(); result.put("text", text); call.resolve(result);
         });
     }
-    @PluginMethod public void openPost(PluginCall call) {
+    @PluginMethod public void resolvePost(PluginCall call) {
         String url = call.getString("url", "");
         if (!UrlPolicy.isPost(url)) { call.reject("유효한 인스타그램 게시물 링크가 아니에요."); return; }
-        Intent intent = new Intent(getContext(), PostBrowserActivity.class);
-        intent.putExtra("url", url);
-        startActivityForResult(call, intent, "postResult");
-    }
-    @ActivityCallback private void postResult(PluginCall call, ActivityResult activityResult) {
-        if (call == null) return;
-        JSObject result = new JSObject();
-        Intent data = activityResult.getData();
-        if (activityResult.getResultCode() != Activity.RESULT_OK || data == null) {
-            result.put("cancelled", true); call.resolve(result); return;
-        }
-        try {
-            result.put("items", new JSArray(data.getStringExtra("items")));
-            call.resolve(result);
-        } catch (Exception e) { call.reject("미디어 정보를 읽지 못했어요."); }
+        resolver.execute(() -> {
+            try {
+                PublicPostResolver.Result resolved = new PublicPostResolver().resolve(url);
+                JSObject result = new JSObject(); result.put("items", resolved.items); call.resolve(result);
+            } catch (PublicPostResolver.ResolveException e) { call.reject(e.getMessage(), e.code); }
+            catch (Exception e) { call.reject("게시물 정보를 읽지 못했어요. 잠시 후 다시 시도해 주세요.", "EXTRACTION_FAILED"); }
+        });
     }
     private DownloadManager manager() { return (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE); }
     @PluginMethod public void download(PluginCall call) {
@@ -123,7 +112,7 @@ public class PocketMediaPlugin extends Plugin {
                 row.put("total", cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)));
                 if (status == DownloadManager.STATUS_FAILED) {
                     int reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
-                    row.put("reason", reason == DownloadManager.ERROR_INSUFFICIENT_SPACE ? "저장 공간이 부족해요" : "저장 실패 · 게시물을 다시 열어 주세요 (" + reason + ")");
+                    row.put("reason", reason == DownloadManager.ERROR_INSUFFICIENT_SPACE ? "저장 공간이 부족해요" : "저장 실패 · 링크를 다시 다운로드해 주세요 (" + reason + ")");
                 }
             } catch (Exception e) { row.put("status", "missing"); }
             downloads.put(row);
@@ -142,13 +131,5 @@ public class PocketMediaPlugin extends Plugin {
             getActivity().startActivity(intent); call.resolve();
         } catch (Exception e) { call.reject("파일이 삭제되었거나 열 수 있는 앱이 없어요. 파일 앱의 Download/InstaPocket에서 확인해 주세요."); }
     }
-    @PluginMethod public void clearSession(PluginCall call) {
-        getActivity().runOnUiThread(() -> {
-            CookieManager.getInstance().removeAllCookies(value -> {
-                CookieManager.getInstance().flush();
-                WebStorage.getInstance().deleteAllData();
-                call.resolve();
-            });
-        });
-    }
+    @Override protected void handleOnDestroy() { resolver.shutdownNow(); }
 }

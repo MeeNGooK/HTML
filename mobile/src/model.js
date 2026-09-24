@@ -32,7 +32,7 @@ export function normalizeMedia(items) {
 
 export function progressLabel(item) {
   if (item.status === 'complete') return '저장 완료';
-  if (item.status === 'failed') return item.reason || '저장 실패 · 게시물을 다시 열어 주세요';
+  if (item.status === 'failed') return item.reason || '저장 실패 · 링크를 다시 다운로드해 주세요';
   if (item.status === 'missing') return '파일 또는 다운로드 기록이 없어요';
   if (item.status === 'paused') return '연결 대기 중';
   const percent = item.total > 0 ? Math.min(100, Math.floor(item.bytes / item.total * 100)) : 0;

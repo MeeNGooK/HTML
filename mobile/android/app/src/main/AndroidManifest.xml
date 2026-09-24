@@ -31,8 +31,6 @@
 
         </activity>
 
-        <activity android:name=".PostBrowserActivity" android:exported="false"
-            android:theme="@style/AppTheme.NoActionBar" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
