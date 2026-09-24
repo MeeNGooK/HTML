@@ -1,0 +1,62 @@
+name: Insta Pocket APK
+on:
+  push:
+    branches: [master]
+    paths: ['mobile/**', '.github/workflows/insta-pocket-apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: insta-pocket-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Test links and media extraction
+        run: npm test
+      - name: Build web UI and sync Android
+        run: npm run sync
+      - name: Test, lint and assemble installable APK
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon
+      - name: Prepare APK
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/InstaPocket-debug.apk
+          cd artifacts
+          sha256sum InstaPocket-debug.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: InstaPocket-APK
+          path: mobile/artifacts/*
+          retention-days: 30
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Android-test-and-lint-reports
+          path: |
+            mobile/android/app/build/reports/tests/
+            mobile/android/app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore

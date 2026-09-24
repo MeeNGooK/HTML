@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Insta Pocket</string>
+    <string name="title_activity_main">Insta Pocket</string>
+    <string name="package_name">com.meengook.instapocket</string>
+    <string name="custom_url_scheme">com.meengook.instapocket</string>
+</resources>

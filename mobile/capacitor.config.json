@@ -1,0 +1,7 @@
+{
+  "appId": "com.meengook.instapocket",
+  "appName": "Insta Pocket",
+  "webDir": "dist",
+  "android": { "allowMixedContent": false },
+  "server": { "androidScheme": "https" }
+}
