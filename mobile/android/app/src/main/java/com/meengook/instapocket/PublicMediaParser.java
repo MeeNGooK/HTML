@@ -72,6 +72,10 @@ public final class PublicMediaParser {
         if (depth > 45 || ++visited > 150000 || items.size() >= 100) return;
         if (value instanceof JSONObject) {
             JSONObject node = (JSONObject)value;
+            if (node.optBoolean("copyright_blocked") || node.optBoolean("is_unpublished")) {
+                incomplete = true;
+                return;
+            }
             String pk = node.optString("pk", node.optString("id", "")).split("_")[0];
             if (shortcode.equals(node.optString("code")) || shortcode.equals(node.optString("shortcode")) || mediaId.equals(pk)) {
                 readMedia(node); return;
@@ -88,6 +92,15 @@ public final class PublicMediaParser {
         } else if (value instanceof JSONArray) {
             JSONArray array = (JSONArray)value;
             for (int i=0;i<array.length();i++) walk(array.opt(i), depth + 1);
+        } else if (value instanceof String) {
+            // Instagram embed payloads sometimes wrap gql_data in a JSON string.
+            // Parse only bounded strings that mention this post; arbitrary page text is ignored.
+            String text = ((String)value).trim();
+            if (text.length() <= 6 * 1024 * 1024 && text.contains(shortcode)
+                    && (text.startsWith("{") || text.startsWith("["))) {
+                try { walk(new JSONTokener(text).nextValue(), depth + 1); }
+                catch (Exception ignored) { /* It looked like JSON but was not valid. */ }
+            }
         }
     }
     private void readMedia(JSONObject node) throws Exception {

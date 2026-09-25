@@ -60,4 +60,16 @@ public class PublicMediaParserTest {
         assertEquals("64",PublicMediaParser.mediaId("BA"));
         assertEquals("A&B",PublicMediaParser.unescape("A&#38;B"));
     }
+    @Test public void parsesJsonWrappedInsideEmbedPayloadString() {
+        PublicMediaParser parser=new PublicMediaParser("ABC");
+        parser.acceptJson("{\"gql_data\":\"{\\\"shortcode_media\\\":{\\\"shortcode\\\":\\\"ABC\\\",\\\"is_video\\\":true,\\\"video_url\\\":\\\""+CDN+"wrapped.mp4\\\"}}\"}");
+        assertEquals(1,parser.result().length());
+        assertEquals(CDN+"wrapped.mp4",parser.result().optJSONObject(0).optString("url"));
+    }
+    @Test public void refusesCopyrightBlockedMediaEvenWhenPosterExists() {
+        PublicMediaParser parser=new PublicMediaParser("ABC");
+        parser.acceptJson("{\"shortcode\":\"ABC\",\"copyright_blocked\":true,\"display_url\":\""+CDN+"poster.jpg\"}");
+        assertTrue(parser.isIncomplete());
+        assertEquals(0,parser.result().length());
+    }
 }
