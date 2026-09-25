@@ -72,4 +72,36 @@ public class PublicMediaParserTest {
         assertTrue(parser.isIncomplete());
         assertEquals(0,parser.result().length());
     }
+    @Test public void prioritizesRealEmbedContextJsonOverMetadataOnlyContext() {
+        PublicMediaParser parser=new PublicMediaParser("DXeh-kYiIge");
+        String inner="{\"context\":{\"type\":\"GraphVideo\",\"shortcode\":\"DXeh-kYiIge\",\"copyright_blocked\":false},"
+                +"\"gql_data\":{\"shortcode_media\":{\"__typename\":\"GraphVideo\",\"shortcode\":\"DXeh-kYiIge\","
+                +"\"is_video\":true,\"display_url\":\""+CDN+"poster.jpg\",\"video_url\":\""+CDN+"ronaldo.mp4\"}}}";
+        String bootstrap=new org.json.JSONObject().put("large_unrelated_bootstrap",new org.json.JSONArray())
+                .put("contextJSON",inner).toString();
+        parser.acceptHtml("<script type='application/json'>"+bootstrap+"</script>");
+        assertFalse(parser.isIncomplete());
+        assertEquals(1,parser.result().length());
+        assertEquals(CDN+"ronaldo.mp4",parser.result().optJSONObject(0).optString("url"));
+    }
+    @Test public void metadataOnlyMatchingNodeDoesNotPoisonLaterMedia() {
+        PublicMediaParser parser=new PublicMediaParser("ABC");
+        parser.acceptJson("[{\"shortcode\":\"ABC\",\"type\":\"GraphVideo\"},{\"shortcode\":\"ABC\",\"is_video\":true,\"video_url\":\""+CDN+"ok.mp4\"}]");
+        assertFalse(parser.isIncomplete());
+        assertEquals(1,parser.result().length());
+    }
+    @Test public void parsesCurrentServerJsEmbedWrapperWithoutExecutingJavascript() {
+        PublicMediaParser parser=new PublicMediaParser("DXeh-kYiIge");
+        String inner="{\"gql_data\":{\"shortcode_media\":{\"shortcode\":\"DXeh-kYiIge\",\"is_video\":true,"
+                +"\"video_url\":\""+CDN+"verified.mp4?a=close);still-json\"}}}";
+        String bootstrap=new org.json.JSONObject().put("contextJSON",inner).toString();
+        parser.acceptHtml("<script nonce='test'>requireLazy([],function(){var s={};s.handle("+bootstrap+");cleanup();});</script>");
+        assertEquals(1,parser.result().length());
+        assertEquals(CDN+"verified.mp4?a=close);still-json",parser.result().optJSONObject(0).optString("url"));
+    }
+    @Test public void balancedJsonExtractorRejectsTruncatedWrapper() {
+        assertEquals("{\"text\":\"}); still inside\",\"nested\":{\"ok\":true}}",
+                PublicMediaParser.extractJsonObject("prefix({\"text\":\"}); still inside\",\"nested\":{\"ok\":true}});tail",6));
+        assertEquals("",PublicMediaParser.extractJsonObject("s.handle({\"broken\":true",9));
+    }
 }

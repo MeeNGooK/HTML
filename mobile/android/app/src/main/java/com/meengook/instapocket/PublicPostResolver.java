@@ -19,7 +19,9 @@ import java.util.regex.Pattern;
 /** Cookie-isolated, anonymous public-post extraction. No WebView, account or external service. */
 public final class PublicPostResolver {
     private static final String BASE = "https://www.instagram.com";
-    private static final String USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36";
+    // Instagram serves its JavaScript-only app shell to a full Android Chrome UA,
+    // while the public embed payload is returned to a generic standards UA.
+    private static final String USER_AGENT = "Mozilla/5.0";
     private static final String QUERY_NAME = "PolarisLoggedOutDesktopWWWPostRootContentQuery";
     // Instagram's logged-out public query; isolated here because its schema can change.
     private static final String QUERY_DOCUMENT = "27130156389949648";

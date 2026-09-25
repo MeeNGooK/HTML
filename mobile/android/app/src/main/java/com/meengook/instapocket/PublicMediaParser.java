@@ -50,7 +50,17 @@ public final class PublicMediaParser {
                 int first = text.indexOf('{'), last = text.lastIndexOf('}');
                 if (first >= 0 && last > first) text = text.substring(first, last + 1);
             }
-            acceptJson(text);
+            if (text.startsWith("{") || text.startsWith("[")) {
+                acceptJson(text);
+            } else {
+                // Current public embeds wrap the bootstrap JSON in ServerJS: s.handle({...}).
+                // Extract the balanced JSON object without evaluating page JavaScript.
+                int marker = text.indexOf("s.handle(");
+                if (marker >= 0) {
+                    String wrapped = extractJsonObject(text, marker + "s.handle(".length());
+                    if (!wrapped.isEmpty()) acceptJson(wrapped);
+                }
+            }
         }
         if (items.isEmpty() && !incomplete && !privatePost) {
             Map<String, String> metadata = new LinkedHashMap<>();
@@ -68,6 +78,25 @@ public final class PublicMediaParser {
             // An og:image alone may be a reel poster or an incomplete carousel, so it is not a photo download.
         }
     }
+    static String extractJsonObject(String text, int from) {
+        int start = text.indexOf('{', Math.max(0, from));
+        if (start < 0) return "";
+        int depth = 0;
+        boolean quoted = false, escaped = false;
+        for (int i=start;i<text.length();i++) {
+            char current = text.charAt(i);
+            if (quoted) {
+                if (escaped) escaped = false;
+                else if (current == '\\') escaped = true;
+                else if (current == '"') quoted = false;
+                continue;
+            }
+            if (current == '"') quoted = true;
+            else if (current == '{') depth++;
+            else if (current == '}' && --depth == 0) return text.substring(start, i + 1);
+        }
+        return "";
+    }
     private void walk(Object value, int depth) throws Exception {
         if (depth > 45 || ++visited > 150000 || items.size() >= 100) return;
         if (value instanceof JSONObject) {
@@ -76,9 +105,20 @@ public final class PublicMediaParser {
                 incomplete = true;
                 return;
             }
+            // Public embed pages store the complete post in a JSON-encoded string.
+            // Inspect it before the large surrounding bootstrap payload exhausts the walk budget.
+            String contextJson = node.optString("contextJSON", "").trim();
+            if (!contextJson.isEmpty() && contextJson.contains(shortcode)
+                    && (contextJson.startsWith("{") || contextJson.startsWith("["))) {
+                try { walk(new JSONTokener(contextJson).nextValue(), depth + 1); }
+                catch (Exception ignored) { /* Continue with other public representations. */ }
+            }
             String pk = node.optString("pk", node.optString("id", "")).split("_")[0];
             if (shortcode.equals(node.optString("code")) || shortcode.equals(node.optString("shortcode")) || mediaId.equals(pk)) {
-                readMedia(node); return;
+                if (hasMediaFields(node)) {
+                    readMedia(node);
+                    return;
+                }
             }
             // This object is the response to our single-post logged-out query, not a recommendation feed.
             JSONObject publicNode = node.optJSONObject("if_not_gated_logged_out");
@@ -102,6 +142,11 @@ public final class PublicMediaParser {
                 catch (Exception ignored) { /* It looked like JSON but was not valid. */ }
             }
         }
+    }
+    private boolean hasMediaFields(JSONObject node) {
+        return node.has("video_url") || node.has("video_versions") || node.has("display_url")
+                || node.has("display_src") || node.has("image_versions2")
+                || node.has("carousel_media") || node.has("edge_sidecar_to_children");
     }
     private void readMedia(JSONObject node) throws Exception {
         JSONObject owner = node.optJSONObject("user"); if (owner == null) owner = node.optJSONObject("owner");
