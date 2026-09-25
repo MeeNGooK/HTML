@@ -72,7 +72,7 @@ public class PublicMediaParserTest {
         assertTrue(parser.isIncomplete());
         assertEquals(0,parser.result().length());
     }
-    @Test public void prioritizesRealEmbedContextJsonOverMetadataOnlyContext() {
+    @Test public void prioritizesRealEmbedContextJsonOverMetadataOnlyContext() throws Exception {
         PublicMediaParser parser=new PublicMediaParser("DXeh-kYiIge");
         String inner="{\"context\":{\"type\":\"GraphVideo\",\"shortcode\":\"DXeh-kYiIge\",\"copyright_blocked\":false},"
                 +"\"gql_data\":{\"shortcode_media\":{\"__typename\":\"GraphVideo\",\"shortcode\":\"DXeh-kYiIge\","
@@ -90,7 +90,7 @@ public class PublicMediaParserTest {
         assertFalse(parser.isIncomplete());
         assertEquals(1,parser.result().length());
     }
-    @Test public void parsesCurrentServerJsEmbedWrapperWithoutExecutingJavascript() {
+    @Test public void parsesCurrentServerJsEmbedWrapperWithoutExecutingJavascript() throws Exception {
         PublicMediaParser parser=new PublicMediaParser("DXeh-kYiIge");
         String inner="{\"gql_data\":{\"shortcode_media\":{\"shortcode\":\"DXeh-kYiIge\",\"is_video\":true,"
                 +"\"video_url\":\""+CDN+"verified.mp4?a=close);still-json\"}}}";
