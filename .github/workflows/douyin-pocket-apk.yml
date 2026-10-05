@@ -56,7 +56,11 @@ jobs:
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew testDebugUnitTest assembleDebug --no-daemon
+          set -o pipefail
+          if ! ./gradlew testDebugUnitTest assembleDebug --no-daemon 2>&1 | tee ../gradle-build.log; then
+            tail -n 40 ../gradle-build.log | tr '\n' ' ' | sed 's/::/: :/g' | xargs -0 -I{} echo "::error title=Android build failure::{}"
+            exit 1
+          fi
       - name: Prepare APK
         run: |
           mkdir -p artifacts
