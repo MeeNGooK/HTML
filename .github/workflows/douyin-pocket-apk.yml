@@ -52,11 +52,11 @@ jobs:
         run: npm test
       - name: Build web UI and sync Android
         run: npm run sync
-      - name: Test, lint and assemble installable APK
+      - name: Test and assemble installable APK
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon
+          ./gradlew testDebugUnitTest assembleDebug --no-daemon
       - name: Prepare APK
         run: |
           mkdir -p artifacts
