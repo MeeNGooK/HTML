@@ -68,7 +68,7 @@ public class PocketMediaPlugin extends Plugin {
         String url = call.getString("url", "");
         String type = call.getString("type", "");
         String post = call.getString("postUrl", "");
-        if (!UrlPolicy.isMedia(url) || (!UrlPolicy.isPost(post) && !UrlPolicy.isShareLink(post)) || !"video".equals(type)) {
+        if ((!UrlPolicy.isMedia(url) && !UrlPolicy.isPlaybackApi(url)) || (!UrlPolicy.isPost(post) && !UrlPolicy.isShareLink(post)) || !"video".equals(type)) {
             call.reject("다운로드할 미디어 주소를 확인해 주세요."); return;
         }
         try {

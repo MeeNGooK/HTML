@@ -7,6 +7,7 @@ public class UrlPolicyTest {
         assertTrue(UrlPolicy.isPost("https://www.douyin.com/video/7341234567890123456"));
         assertTrue(UrlPolicy.isMedia("https://v3-default.douyinvod.com/file.mp4?signature=123"));
         assertTrue(UrlPolicy.isMedia("https://v5-dy-ov-experiment.zjcdn.com/file.mp4?signature=123"));
+        assertTrue(UrlPolicy.isPlaybackApi("https://aweme.snssdk.com/aweme/v1/play/?video_id=v2800fgi0000daf5p3vog65hvqkdgkjg&ratio=default&line=0"));
     }
     @Test public void recognizesDouyinShareLandingRouteVariants() {
         assertTrue(UrlPolicy.isPost("https://www.douyin.com/share/video/7341234567890123456?previous_page=app_code_link"));
@@ -21,6 +22,8 @@ public class UrlPolicyTest {
         assertFalse(UrlPolicy.isMedia("http://v3-default.douyinvod.com/file.mp4"));
         assertFalse(UrlPolicy.isMedia("https://douyinvod.com.evil.test/file.mp4"));
         assertFalse(UrlPolicy.isMedia("file:///sdcard/private"));
+        assertFalse(UrlPolicy.isPlaybackApi("https://aweme.snssdk.com/aweme/v1/play/other?video_id=x"));
+        assertFalse(UrlPolicy.isPlaybackApi("https://aweme.snssdk.com.evil.test/aweme/v1/play/?video_id=x"));
         assertFalse(UrlPolicy.isPost(null));
     }
     @Test public void rejectsUnrelatedRoutes() {

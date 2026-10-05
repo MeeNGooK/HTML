@@ -50,4 +50,8 @@ public final class UrlPolicy {
         }
         return false;
     }
+    public static boolean isPlaybackApi(String value) {
+        URI uri = parse(value);
+        return uri != null && uri.getHost().equalsIgnoreCase("aweme.snssdk.com") && "/aweme/v1/play/".equals(uri.getPath());
+    }
 }
