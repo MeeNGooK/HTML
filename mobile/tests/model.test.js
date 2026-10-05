@@ -12,6 +12,7 @@ test('rejects spoofed hosts, credentials, ports and unsupported routes', () => {
 });
 test('media hosts require HTTPS and a domain boundary', () => {
   assert.ok(isMediaUrl('https://v3-default.douyinvod.com/path/video.mp4?sign=1'));
+  assert.ok(isMediaUrl('https://v5-dy-ov-experiment.zjcdn.com/path/video.mp4?sign=1'));
   for (const url of ['http://v3-default.douyinvod.com/file', 'https://evildouyinvod.com/file', 'https://bytecdn.cn.evil.test/file', 'blob:123', 'file:///tmp/a']) assert.equal(isMediaUrl(url), false);
 });
 test('media normalization removes duplicates and rejects invalid types', () => {

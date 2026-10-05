@@ -1,5 +1,5 @@
 {
-  "appId": "com.meengook.douyinpocket",
+  "appId": "com.meengook.douyinpocket.app",
   "appName": "Douyin Pocket",
   "webDir": "dist",
   "android": { "allowMixedContent": false },

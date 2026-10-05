@@ -1,5 +1,15 @@
 package com.meengook.instapocket;
 
+import android.app.Activity;
+import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Gravity;
+import android.view.ViewGroup;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
@@ -14,15 +24,21 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Reads public Douyin video metadata from the shared landing page; no account or external service. */
 public final class PublicPostResolver {
     private static final String UA = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 Chrome/126.0.0.0 Mobile Safari/537.36";
     private static final int MAX_BYTES = 8 * 1024 * 1024;
+    private final Context context;
     private final long deadline = System.currentTimeMillis() + 45000;
     private int visited;
     private String wantedId = "";
     private JSONObject match;
+
+    public PublicPostResolver(Context context) { this.context = context; }
 
     public static final class Result {
         public final JSONArray items;
@@ -43,7 +59,11 @@ public final class PublicPostResolver {
         wantedId = UrlPolicy.videoId(page.url);
         if (wantedId.isEmpty()) throw new ResolveException("UNKNOWN_VIDEO_URL", "Douyin 공개 페이지에 연결됐지만 영상 번호가 있는 주소 형식을 식별하지 못했어요.");
         parsePage(page.body);
-        if (match == null) throw new ResolveException("NO_DIRECT_MEDIA", "공개 페이지에서 저장 가능한 영상 주소를 찾지 못했어요. 비공개·삭제 영상이거나 Douyin 응답 형식이 바뀌었을 수 있어요.");
+        if (match == null) {
+            JSONObject rendered = renderVideo(page.url);
+            if (rendered != null) return result(rendered.optString("url"), rendered.optInt("width"), rendered.optInt("height"), 0, "공개 재생 스트림");
+            throw new ResolveException("NO_DIRECT_MEDIA", "Douyin 페이지는 열렸지만 영상 재생 주소를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.");
+        }
         JSONObject video = match.optJSONObject("video");
         if (video == null) throw new ResolveException("NO_DIRECT_MEDIA", "이 게시물에는 공개 동영상 스트림이 없어요.");
         List<Variant> variants = new ArrayList<>();
@@ -57,12 +77,14 @@ public final class PublicPostResolver {
         boolean has60 = variants.stream().anyMatch(v -> v.fps >= 60);
         variants.sort(Comparator.comparing((Variant v) -> v.fps >= 60).thenComparingLong(v -> (long)v.width * v.height).thenComparingInt(v -> v.fps));
         Variant best = variants.get(variants.size() - 1);
-        JSONArray items = new JSONArray();
-        JSONObject item = new JSONObject();
-        item.put("url", best.url); item.put("type", "video"); item.put("thumbnail", "");
-        item.put("quality", best.width + "×" + best.height + (best.fps > 0 ? " · " + best.fps + "fps" : "") + (has60 ? " · 60fps 우선" : " · 공개 최고 화질"));
-        items.put(item);
-        return new Result(items);
+        return result(best.url, best.width, best.height, best.fps, has60 ? "60fps 우선" : "공개 최고 화질");
+    }
+    private Result result(String url, int width, int height, int fps, String note) throws Exception {
+        if (!UrlPolicy.isMedia(url)) throw new ResolveException("UNTRUSTED_MEDIA", "영상 서버 주소를 확인하지 못했어요.");
+        JSONArray items = new JSONArray(); JSONObject item = new JSONObject();
+        item.put("url", url); item.put("type", "video"); item.put("thumbnail", "");
+        item.put("quality", (width > 0 && height > 0 ? width + "×" + height + " · " : "") + (fps > 0 ? fps + "fps · " : "") + note);
+        items.put(item); return new Result(items);
     }
     private static final class Variant {
         final String url; final int width, height, fps;
@@ -117,6 +139,67 @@ public final class PublicPostResolver {
             Matcher data = Pattern.compile("(?is)RENDER_DATA[^>]*>([^<]+)<").matcher(html);
             if (data.find()) try { String decoded = URLDecoder.decode(data.group(1), "UTF-8"); walk(new JSONTokener(decoded).nextValue(), 0); } catch (Exception ignored) { }
         }
+    }
+    private JSONObject renderVideo(String pageUrl) throws Exception {
+        if (!(context instanceof Activity)) return null;
+        Activity activity = (Activity)context;
+        CountDownLatch done = new CountDownLatch(1);
+        AtomicReference<JSONObject> found = new AtomicReference<>();
+        AtomicReference<WebView> active = new AtomicReference<>();
+        Handler handler = new Handler(Looper.getMainLooper());
+        Runnable cleanup = () -> {
+            WebView view = active.getAndSet(null);
+            if (view != null) {
+                view.stopLoading();
+                if (view.getParent() instanceof ViewGroup) ((ViewGroup)view.getParent()).removeView(view);
+                view.destroy();
+            }
+            done.countDown();
+        };
+        Runnable[] poll = new Runnable[1];
+        poll[0] = () -> {
+            WebView view = active.get();
+            if (view == null || found.get() != null) return;
+            String script = "(function(){var a=Array.from(document.querySelectorAll('video'));var id='" + wantedId + "';var v=a.find(function(x){try{return new URL(x.currentSrc||x.src,location.href).searchParams.get('__vid')===id&&x.readyState>=2}catch(e){return false}})||a.find(function(x){return x.readyState>=2&&x.videoWidth>0&&/^https?:/.test(x.currentSrc||x.src)});return JSON.stringify(v?{url:v.currentSrc||v.src,width:v.videoWidth||0,height:v.videoHeight||0}:{});})()";
+            view.evaluateJavascript(script, encoded -> {
+                try {
+                    Object decoded = new JSONTokener(encoded == null ? "null" : encoded).nextValue();
+                    if (decoded instanceof String) {
+                        JSONObject candidate = new JSONObject((String)decoded);
+                        if (UrlPolicy.isMedia(candidate.optString("url"))) {
+                            found.set(candidate); cleanup.run(); return;
+                        }
+                    }
+                } catch (Exception ignored) { }
+                if (System.currentTimeMillis() >= deadline) cleanup.run();
+                else handler.postDelayed(poll[0], 500);
+            });
+        };
+        handler.post(() -> {
+            try {
+                WebView view = new WebView(activity);
+                active.set(view);
+                WebSettings settings = view.getSettings();
+                settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setMediaPlaybackRequiresUserGesture(false);
+                view.setAlpha(0.01f);
+                view.setWebViewClient(new WebViewClient() {
+                    @Override public boolean shouldOverrideUrlLoading(WebView v, android.webkit.WebResourceRequest request) {
+                        return !UrlPolicy.isDouyinHost(request.getUrl().toString());
+                    }
+                    @Override public void onPageFinished(WebView v, String url) {
+                        if (!UrlPolicy.isDouyinHost(url)) { cleanup.run(); return; }
+                        handler.post(poll[0]);
+                    }
+                });
+                FrameLayout root = activity.findViewById(android.R.id.content);
+                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(2, 2, Gravity.TOP | Gravity.LEFT);
+                root.addView(view, params);
+                view.loadUrl(pageUrl);
+            } catch (Exception e) { cleanup.run(); }
+        });
+        long remaining = Math.max(1, Math.min(35000, deadline - System.currentTimeMillis()));
+        if (!done.await(remaining, TimeUnit.MILLISECONDS)) handler.post(cleanup);
+        return found.get();
     }
     private void walk(Object value, int depth) {
         if (match != null || depth > 45 || ++visited > 150000) return;

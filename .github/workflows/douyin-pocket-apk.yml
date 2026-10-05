@@ -27,6 +27,21 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - uses: actions/cache@v4
+        with:
+          path: mobile/android/app/douyin-pocket-debug.keystore
+          key: douyin-pocket-debug-signing-${{ github.repository_id }}-v1
+      - name: Create stable personal-test signing key when missing
+        run: |
+          if [ ! -f android/app/douyin-pocket-debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore android/app/douyin-pocket-debug.keystore \
+              -storepass android \
+              -alias douyin-pocket-debug \
+              -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Douyin Pocket Debug, OU=Personal Testing, O=MeeNGooK, C=KR"
+          fi
       - uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'

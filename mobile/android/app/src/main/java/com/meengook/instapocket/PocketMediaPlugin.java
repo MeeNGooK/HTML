@@ -57,7 +57,7 @@ public class PocketMediaPlugin extends Plugin {
         if (!UrlPolicy.isPost(url) && !UrlPolicy.isShareLink(url)) { call.reject("유효한 Douyin 영상 링크가 아니에요."); return; }
         resolver.execute(() -> {
             try {
-                PublicPostResolver.Result resolved = new PublicPostResolver().resolve(url);
+                PublicPostResolver.Result resolved = new PublicPostResolver(getActivity()).resolve(url);
                 JSObject result = new JSObject(); result.put("items", resolved.items); call.resolve(result);
             } catch (PublicPostResolver.ResolveException e) { call.reject(e.getMessage(), e.code); }
             catch (Exception e) { call.reject("게시물 정보를 읽지 못했어요. 잠시 후 다시 시도해 주세요.", "EXTRACTION_FAILED"); }

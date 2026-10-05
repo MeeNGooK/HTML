@@ -19,7 +19,7 @@ export function isMediaUrl(value) {
   try {
     const u = new URL(value);
     return u.protocol === 'https:' && !u.username && !u.password && !u.port &&
-      ['douyinvod.com', 'douyinvod.net', 'bytecdn.cn', 'douyin.com', 'douyinpic.com'].some(d => u.hostname === d || u.hostname.endsWith(`.${d}`));
+      ['douyinvod.com', 'douyinvod.net', 'bytecdn.cn', 'douyin.com', 'douyinpic.com', 'zjcdn.com'].some(d => u.hostname === d || u.hostname.endsWith(`.${d}`));
   } catch { return false; }
 }
 

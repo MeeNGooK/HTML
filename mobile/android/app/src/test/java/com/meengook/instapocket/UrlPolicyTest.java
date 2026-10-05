@@ -6,6 +6,7 @@ public class UrlPolicyTest {
         assertTrue(UrlPolicy.isShareLink("https://v.douyin.com/0rxK1KgNtAA/"));
         assertTrue(UrlPolicy.isPost("https://www.douyin.com/video/7341234567890123456"));
         assertTrue(UrlPolicy.isMedia("https://v3-default.douyinvod.com/file.mp4?signature=123"));
+        assertTrue(UrlPolicy.isMedia("https://v5-dy-ov-experiment.zjcdn.com/file.mp4?signature=123"));
     }
     @Test public void recognizesDouyinShareLandingRouteVariants() {
         assertTrue(UrlPolicy.isPost("https://www.douyin.com/share/video/7341234567890123456?previous_page=app_code_link"));

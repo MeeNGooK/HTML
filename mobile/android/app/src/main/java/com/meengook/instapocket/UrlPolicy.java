@@ -45,7 +45,7 @@ public final class UrlPolicy {
         URI uri = parse(value);
         if (uri == null) return false;
         String host = uri.getHost().toLowerCase(Locale.ROOT);
-        for (String domain : new String[]{"douyinvod.com", "douyinvod.net", "bytecdn.cn", "douyin.com", "douyinpic.com"}) {
+        for (String domain : new String[]{"douyinvod.com", "douyinvod.net", "bytecdn.cn", "douyin.com", "douyinpic.com", "zjcdn.com"}) {
             if (host.equals(domain) || host.endsWith("." + domain)) return true;
         }
         return false;
