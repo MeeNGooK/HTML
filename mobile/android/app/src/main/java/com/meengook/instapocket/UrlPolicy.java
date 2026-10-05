@@ -33,7 +33,7 @@ public final class UrlPolicy {
         URI uri = parse(value);
         if (uri == null || !isDouyinHost(value)) return "";
         java.util.regex.Matcher path = VIDEO_ID.matcher(uri.getPath());
-        if (path.matches()) return path.group(2);
+        if (path.matches()) return path.group(1);
         String query = uri.getRawQuery();
         if (query != null) for (String pair : query.split("&")) {
             String[] parts = pair.split("=", 2);
