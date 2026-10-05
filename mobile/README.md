@@ -2,6 +2,8 @@
 
 **링크 복사 → 앱에 붙여넣기 → 다운로드.** 공개 Instagram 게시물의 사진·동영상을 로그인 없이 자동 추출해 저장하는 Android 앱입니다. 여러 장짜리 게시물은 원본 정보를 모두 찾았을 때 전체 항목을 저장합니다. Instagram 공유 메뉴에서 이 앱으로 링크를 전달할 수도 있습니다.
 
+개발 과정의 오류, 원인 분석, 수정과 검증 기록은 [DEVELOPMENT_HISTORY.md](DEVELOPMENT_HISTORY.md)에 정리되어 있습니다.
+
 ## APK
 
 [GitHub Actions의 최신 성공 실행](https://github.com/MeeNGooK/HTML/actions/workflows/insta-pocket-apk.yml) → Artifacts → **InstaPocket-APK**를 내려받고 압축을 풀어 `InstaPocket-debug.apk`를 Android 10 이상 기기에 설치합니다. GitHub 로그인이 필요할 수 있습니다. Android에서 파일을 여는 앱의 '알 수 없는 앱 설치' 허용이 필요할 수 있습니다.
