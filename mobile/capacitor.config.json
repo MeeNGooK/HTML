@@ -1,6 +1,6 @@
 {
-  "appId": "com.meengook.instapocket",
-  "appName": "Insta Pocket",
+  "appId": "com.meengook.douyinpocket",
+  "appName": "Douyin Pocket",
   "webDir": "dist",
   "android": { "allowMixedContent": false },
   "server": { "androidScheme": "https" }

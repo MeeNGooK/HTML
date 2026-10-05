@@ -2,20 +2,22 @@ package com.meengook.instapocket;
 import org.junit.Test;
 import static org.junit.Assert.*;
 public class UrlPolicyTest {
-    @Test public void permitsPostsAndSignedCdnFiles() {
-        assertTrue(UrlPolicy.isPost("https://www.instagram.com/reel/ABC_12-/"));
-        assertTrue(UrlPolicy.isMedia("https://scontent.cdninstagram.com/file.mp4?signature=123"));
+    @Test public void acceptsDouyinShareAndVideoLinks() {
+        assertTrue(UrlPolicy.isShareLink("https://v.douyin.com/0rxK1KgNtAA/"));
+        assertTrue(UrlPolicy.isPost("https://www.douyin.com/video/7341234567890123456"));
+        assertTrue(UrlPolicy.isMedia("https://v3-default.douyinvod.com/file.mp4?signature=123"));
     }
     @Test public void rejectsSpoofedHostsAndNonHttps() {
-        assertFalse(UrlPolicy.isPost("https://instagram.com.evil.test/p/ABC/"));
-        assertFalse(UrlPolicy.isPost("https://user@instagram.com/p/ABC/"));
-        assertFalse(UrlPolicy.isMedia("http://scontent.cdninstagram.com/file.jpg"));
-        assertFalse(UrlPolicy.isMedia("https://evilfbcdn.net/file.mp4"));
+        assertFalse(UrlPolicy.isPost("https://douyin.com.evil.test/video/123"));
+        assertFalse(UrlPolicy.isPost("https://user@douyin.com/video/123"));
+        assertFalse(UrlPolicy.isShareLink("https://v.douyin.com.evil.test/a"));
+        assertFalse(UrlPolicy.isMedia("http://v3-default.douyinvod.com/file.mp4"));
+        assertFalse(UrlPolicy.isMedia("https://douyinvod.com.evil.test/file.mp4"));
         assertFalse(UrlPolicy.isMedia("file:///sdcard/private"));
         assertFalse(UrlPolicy.isPost(null));
     }
-    @Test public void rejectsNonPostRoutes() {
-        assertFalse(UrlPolicy.isPost("https://www.instagram.com/username/"));
-        assertFalse(UrlPolicy.isPost("https://www.instagram.com/stories/name/123/"));
+    @Test public void rejectsUnrelatedRoutes() {
+        assertFalse(UrlPolicy.isPost("https://www.douyin.com/user/123"));
+        assertFalse(UrlPolicy.isPost("https://www.douyin.com/video/not-a-number"));
     }
 }

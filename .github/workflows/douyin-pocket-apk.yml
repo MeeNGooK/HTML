@@ -1,13 +1,13 @@
-name: Insta Pocket APK
+name: Douyin Pocket APK
 on:
   push:
-    branches: [master]
-    paths: ['mobile/**', '.github/workflows/insta-pocket-apk.yml']
+    branches: [codex/douyin-pocket]
+    paths: ['mobile/**', '.github/workflows/douyin-pocket-apk.yml']
   workflow_dispatch:
 permissions:
   contents: write
 concurrency:
-  group: insta-pocket-${{ github.ref }}
+  group: douyin-pocket-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build:
@@ -45,27 +45,27 @@ jobs:
       - name: Prepare APK
         run: |
           mkdir -p artifacts
-          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/InstaPocket-debug.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/DouyinPocket-debug.apk
           cd artifacts
-          sha256sum InstaPocket-debug.apk > SHA256SUMS.txt
+          sha256sum DouyinPocket-debug.apk > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: InstaPocket-APK
+          name: DouyinPocket-APK
           path: mobile/artifacts/*
           retention-days: 30
           if-no-files-found: error
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: insta-pocket-${{ github.run_number }}
-          name: Insta Pocket build #${{ github.run_number }}
+          tag_name: douyin-pocket-${{ github.run_number }}
+          name: Douyin Pocket build #${{ github.run_number }}
           body: |
             Android APK for commit `${{ github.sha }}`.
 
-            Download `InstaPocket-debug.apk` below and install it on Android 10 or later. This is a debug-signed build for personal testing. If updating fails because the signing key changed, uninstall the previous build first.
+            Download `DouyinPocket-debug.apk` below and install it on Android 10 or later. This is a debug-signed build for personal testing. If updating fails because the signing key changed, uninstall the previous build first.
           make_latest: true
           files: |
-            mobile/artifacts/InstaPocket-debug.apk
+            mobile/artifacts/DouyinPocket-debug.apk
             mobile/artifacts/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         if: always()

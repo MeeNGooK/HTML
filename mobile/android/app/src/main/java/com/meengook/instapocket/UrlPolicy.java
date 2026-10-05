@@ -5,7 +5,7 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 public final class UrlPolicy {
-    private static final Pattern POST = Pattern.compile("^/(p|reel|reels|tv)/[A-Za-z0-9_-]+/?$");
+    private static final Pattern VIDEO = Pattern.compile("^/(video|note)/\\d+/?$");
     private UrlPolicy() {}
     private static URI parse(String value) {
         try {
@@ -14,21 +14,25 @@ public final class UrlPolicy {
             return uri;
         } catch (Exception e) { return null; }
     }
-    public static boolean isInstagram(String value) {
+    public static boolean isDouyinHost(String value) {
         URI uri = parse(value);
         if (uri == null) return false;
         String host = uri.getHost().toLowerCase(Locale.ROOT);
-        return host.equals("instagram.com") || host.equals("www.instagram.com") || host.equals("m.instagram.com");
+        return host.equals("douyin.com") || host.endsWith(".douyin.com") || host.equals("iesdouyin.com") || host.endsWith(".iesdouyin.com");
+    }
+    public static boolean isShareLink(String value) {
+        URI uri = parse(value);
+        return uri != null && uri.getHost().equalsIgnoreCase("v.douyin.com") && uri.getPath().matches("/[A-Za-z0-9_-]+/?");
     }
     public static boolean isPost(String value) {
         URI uri = parse(value);
-        return uri != null && isInstagram(value) && POST.matcher(uri.getPath()).matches();
+        return uri != null && isDouyinHost(value) && VIDEO.matcher(uri.getPath()).matches();
     }
     public static boolean isMedia(String value) {
         URI uri = parse(value);
         if (uri == null) return false;
         String host = uri.getHost().toLowerCase(Locale.ROOT);
-        for (String domain : new String[]{"cdninstagram.com", "fbcdn.net", "instagram.com"}) {
+        for (String domain : new String[]{"douyinvod.com", "douyinvod.net", "bytecdn.cn", "douyin.com", "douyinpic.com"}) {
             if (host.equals(domain) || host.endsWith("." + domain)) return true;
         }
         return false;

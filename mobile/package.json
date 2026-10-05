@@ -1,6 +1,6 @@
 {
-  "name": "insta-pocket",
-  "version": "1.2.0",
+  "name": "douyin-pocket",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {

@@ -1,21 +1,25 @@
 export function normalizePostUrl(text) {
-  const match = String(text ?? '').match(/https?:\/\/[^\s<>"']+/i);
-  if (!match) throw new Error('인스타그램 게시물 링크를 붙여넣어 주세요.');
+  const match = String(text ?? '').match(/https?:\/\/(?:v\.douyin\.com|douyin\.com|www\.douyin\.com|iesdouyin\.com|www\.iesdouyin\.com)\/[^\s<>"'，。]+/i);
+  if (!match) throw new Error('Douyin 공유 메시지에서 영상 링크를 찾지 못했어요.');
   let url;
   try { url = new URL(match[0]); } catch { throw new Error('올바른 링크를 입력해 주세요.'); }
-  if (!['instagram.com', 'www.instagram.com', 'm.instagram.com'].includes(url.hostname) || url.username || url.password || url.port) {
-    throw new Error('instagram.com 게시물 링크만 사용할 수 있어요.');
+  if (!['douyin.com', 'www.douyin.com', 'v.douyin.com', 'iesdouyin.com', 'www.iesdouyin.com'].includes(url.hostname) || url.username || url.password || url.port) {
+    throw new Error('Douyin 영상 링크만 사용할 수 있어요.');
   }
-  const path = url.pathname.match(/^\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)\/?$/);
-  if (!path) throw new Error('사진 게시물 또는 릴스의 링크를 사용해 주세요. (프로필·스토리·공유 단축 링크 제외)');
-  return `https://www.instagram.com/${path[1] === 'reels' ? 'reel' : path[1]}/${path[2]}/`;
+  if (url.hostname === 'v.douyin.com') {
+    if (!/^\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) throw new Error('Douyin 공유 링크 형식을 확인해 주세요.');
+    return url.toString();
+  }
+  const path = url.pathname.match(/^\/(?:video|note)\/(\d+)\/?$/);
+  if (!path) throw new Error('Douyin 동영상 공유 링크를 사용해 주세요.');
+  return `https://www.douyin.com/video/${path[1]}`;
 }
 
 export function isMediaUrl(value) {
   try {
     const u = new URL(value);
     return u.protocol === 'https:' && !u.username && !u.password && !u.port &&
-      ['cdninstagram.com', 'fbcdn.net', 'instagram.com'].some(d => u.hostname === d || u.hostname.endsWith(`.${d}`));
+      ['douyinvod.com', 'douyinvod.net', 'bytecdn.cn', 'douyin.com', 'douyinpic.com'].some(d => u.hostname === d || u.hostname.endsWith(`.${d}`));
   } catch { return false; }
 }
 
@@ -27,7 +31,7 @@ export function normalizeMedia(items) {
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
-  }).map(item => ({ url: item.url, type: item.type, thumbnail: isMediaUrl(item.thumbnail) ? item.thumbnail : '', selected: true }));
+  }).map(item => ({ url: item.url, type: item.type, quality: String(item.quality || ''), thumbnail: isMediaUrl(item.thumbnail) ? item.thumbnail : '', selected: true }));
 }
 
 export function progressLabel(item) {

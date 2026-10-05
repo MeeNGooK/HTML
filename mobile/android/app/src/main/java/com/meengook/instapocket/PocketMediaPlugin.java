@@ -54,7 +54,7 @@ public class PocketMediaPlugin extends Plugin {
     }
     @PluginMethod public void resolvePost(PluginCall call) {
         String url = call.getString("url", "");
-        if (!UrlPolicy.isPost(url)) { call.reject("유효한 인스타그램 게시물 링크가 아니에요."); return; }
+        if (!UrlPolicy.isPost(url) && !UrlPolicy.isShareLink(url)) { call.reject("유효한 Douyin 영상 링크가 아니에요."); return; }
         resolver.execute(() -> {
             try {
                 PublicPostResolver.Result resolved = new PublicPostResolver().resolve(url);
@@ -68,24 +68,19 @@ public class PocketMediaPlugin extends Plugin {
         String url = call.getString("url", "");
         String type = call.getString("type", "");
         String post = call.getString("postUrl", "");
-        if (!UrlPolicy.isMedia(url) || !UrlPolicy.isPost(post) || !("video".equals(type) || "image".equals(type))) {
+        if (!UrlPolicy.isMedia(url) || (!UrlPolicy.isPost(post) && !UrlPolicy.isShareLink(post)) || !"video".equals(type)) {
             call.reject("다운로드할 미디어 주소를 확인해 주세요."); return;
         }
         try {
-            String extension = "video".equals(type) ? ".mp4" : ".jpg";
-            String path = Uri.parse(url).getPath();
-            if ("image".equals(type) && path != null) {
-                if (path.toLowerCase(Locale.ROOT).endsWith(".webp")) extension = ".webp";
-                else if (path.toLowerCase(Locale.ROOT).endsWith(".png")) extension = ".png";
-            }
-            String name = "Pocket_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + "_" + UUID.randomUUID().toString().substring(0, 6) + extension;
+            String extension = ".mp4";
+            String name = "Douyin_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + "_" + UUID.randomUUID().toString().substring(0, 6) + extension;
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
-            request.setTitle(name).setDescription("Insta Pocket에 저장 중");
+            request.setTitle(name).setDescription("Douyin Pocket에 저장 중");
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "InstaPocket/" + name);
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "DouyinPocket/" + name);
             request.addRequestHeader("User-Agent", WebSettings.getDefaultUserAgent(getContext()));
-            request.addRequestHeader("Referer", "https://www.instagram.com/");
-            // CDN links are signed. Never attach the Instagram login cookie to a file request.
+            request.addRequestHeader("Referer", "https://www.douyin.com/");
+            // CDN links are signed. No account cookies are used for page or file requests.
             long id = manager().enqueue(request);
             getContext().getSharedPreferences("downloads", Context.MODE_PRIVATE).edit().putBoolean(Long.toString(id), true).apply();
             JSObject result = new JSObject(); result.put("id", Long.toString(id)); result.put("name", name); call.resolve(result);
