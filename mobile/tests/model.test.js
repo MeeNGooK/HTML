@@ -5,6 +5,7 @@ import {normalizePostUrl, normalizeMedia, isMediaUrl, loadHistory, progressLabel
 test('extracts the Douyin URL from shared caption text and normalizes full video links', () => {
   assert.equal(normalizePostUrl('6.61 复制打开抖音，看看【小敏小敏的作品】千万不能评论 # 谁还不是小腰精 https://v.douyin.com/0rxK1KgNtAA/ 05/13 I@I.Vy :4pm OXz:/'), 'https://v.douyin.com/0rxK1KgNtAA/');
   assert.equal(normalizePostUrl('https://www.douyin.com/video/7341234567890123456?from=copy'), 'https://www.douyin.com/video/7341234567890123456');
+  assert.equal(normalizePostUrl('https://www.douyin.com/share/video/7341234567890123456?previous_page=app_code_link'), 'https://www.douyin.com/video/7341234567890123456');
 });
 test('rejects spoofed hosts, credentials, ports and unsupported routes', () => {
   for (const url of ['https://douyin.com.evil.test/video/123', 'https://douyin.com@evil.test/video/123', 'https://user@douyin.com/video/123', 'https://douyin.com:444/video/123', 'https://www.douyin.com/user/123', 'https://www.douyin.com/video/abc', 'javascript:alert(1)', '']) assert.throws(() => normalizePostUrl(url), url);

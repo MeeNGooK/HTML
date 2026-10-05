@@ -27,7 +27,7 @@ Douyin 공유 텍스트를 통째로 붙여넣으면 URL만 찾아 공개 동영
 
 ## 실제 접근 조사와 제한
 
-2026-10-05에 사용자가 제공한 `https://v.douyin.com/0rxK1KgNtAA/` 링크를 비로그인 HTTP 요청했다. 링크는 `https://www.douyin.com/video/7682679999606357425`로 연결되지만, 현재 공개 페이지 응답은 JS 로더 셸이며 `aweme_id`, `RENDER_DATA`, `play_addr`, `bit_rate`를 포함하지 않았다. 두 공개 상세 API 경로도 HTTP 200 빈 응답을 반환했다. 그러므로 현재 이 링크에서 HD/60fps 원본 추출·실제 기기 저장 성공은 검증되지 않았다. 앱은 응답에서 원본을 찾을 수 없을 때 명시적인 실패 메시지를 표시한다. 페이지 공개 스키마 또는 비로그인 접근이 바뀌면 `PublicPostResolver.java`와 `UrlPolicy.java`를 먼저 확인한다.
+2026-10-05에 사용자가 제공한 `https://v.douyin.com/0rxK1KgNtAA/` 링크는 `https://www.douyin.com/video/7682679999606357425`로 연결된다. 첫 릴리스는 최종 URL 경로를 `/video/{id}`와 `/note/{id}`로만 제한해 다른 Douyin 공유 경로를 공개 영상이 아닌 것으로 오판할 수 있었다. 1.0.1에서는 `/share/video/{id}`, `/share/note/{id}`, `/share/slides/{id}` 및 `modal_id`·`aweme_id`·`item_id` 쿼리 경로도 인식한다. 공개 페이지 응답은 여전히 JS 로더 셸이었고 두 공개 상세 API 경로도 빈 응답을 반환했으므로, 이 링크에서 HD/60fps 원본 추출·실제 기기 저장 성공은 별도로 확인해야 한다. 영상 식별에 실패하면 앱은 공개 여부를 잘못 단정하지 않고 주소 형식 오류를 표시한다. 페이지 공개 스키마가 바뀌면 `PublicPostResolver.java`와 `UrlPolicy.java`를 먼저 확인한다.
 
 다른 지역·네트워크·시점에서 Douyin이 공개 페이지에 영상 정보를 포함할 수 있으므로 구현은 해당 공개 JSON 형태를 처리한다. 60fps가 게시물 원본이나 공개 응답에 없으면 앱이 60fps를 만들어내거나 프레임 보간하지 않으며, 공개된 최고 화질 변형을 선택한다.
 

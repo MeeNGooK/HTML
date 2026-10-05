@@ -6,7 +6,6 @@ import org.json.JSONTokener;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.URI;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -40,9 +39,9 @@ public final class PublicPostResolver {
     public Result resolve(String link) throws Exception {
         if (!UrlPolicy.isPost(link) && !UrlPolicy.isShareLink(link)) throw new ResolveException("INVALID_URL", "Douyin 공유 링크를 확인해 주세요.");
         Response page = request(link);
-        URI finalUri = new URI(page.url);
-        if (!UrlPolicy.isPost(page.url)) throw new ResolveException("NOT_A_VIDEO", "공유 링크가 공개 동영상으로 연결되지 않았어요.");
-        wantedId = finalUri.getPath().split("/")[2];
+        if (!UrlPolicy.isDouyinHost(page.url)) throw new ResolveException("UNSAFE_REDIRECT", "공유 링크가 Douyin 이외의 주소로 연결됐어요.");
+        wantedId = UrlPolicy.videoId(page.url);
+        if (wantedId.isEmpty()) throw new ResolveException("UNKNOWN_VIDEO_URL", "Douyin 공개 페이지에 연결됐지만 영상 번호가 있는 주소 형식을 식별하지 못했어요.");
         parsePage(page.body);
         if (match == null) throw new ResolveException("NO_DIRECT_MEDIA", "공개 페이지에서 저장 가능한 영상 주소를 찾지 못했어요. 비공개·삭제 영상이거나 Douyin 응답 형식이 바뀌었을 수 있어요.");
         JSONObject video = match.optJSONObject("video");

@@ -10,7 +10,7 @@ export function normalizePostUrl(text) {
     if (!/^\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) throw new Error('Douyin 공유 링크 형식을 확인해 주세요.');
     return url.toString();
   }
-  const path = url.pathname.match(/^\/(?:video|note)\/(\d+)\/?$/);
+  const path = url.pathname.match(/^\/(?:share\/)?(?:video|note|slides)\/(\d+)\/?$/);
   if (!path) throw new Error('Douyin 동영상 공유 링크를 사용해 주세요.');
   return `https://www.douyin.com/video/${path[1]}`;
 }

@@ -5,7 +5,8 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 public final class UrlPolicy {
-    private static final Pattern VIDEO = Pattern.compile("^/(video|note)/\\d+/?$");
+    private static final Pattern VIDEO = Pattern.compile("^/(?:share/)?(video|note|slides)/(\\d+)/?$");
+    private static final Pattern VIDEO_ID = Pattern.compile("^/(?:share/)?(?:video|note|slides)/(\\d+)/?$");
     private UrlPolicy() {}
     private static URI parse(String value) {
         try {
@@ -27,6 +28,18 @@ public final class UrlPolicy {
     public static boolean isPost(String value) {
         URI uri = parse(value);
         return uri != null && isDouyinHost(value) && VIDEO.matcher(uri.getPath()).matches();
+    }
+    public static String videoId(String value) {
+        URI uri = parse(value);
+        if (uri == null || !isDouyinHost(value)) return "";
+        java.util.regex.Matcher path = VIDEO_ID.matcher(uri.getPath());
+        if (path.matches()) return path.group(1);
+        String query = uri.getRawQuery();
+        if (query != null) for (String pair : query.split("&")) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length == 2 && (parts[0].equals("modal_id") || parts[0].equals("aweme_id") || parts[0].equals("item_id")) && parts[1].matches("\\d{10,25}")) return parts[1];
+        }
+        return "";
     }
     public static boolean isMedia(String value) {
         URI uri = parse(value);
