@@ -59,22 +59,22 @@ public final class PublicPostResolver {
         wantedId = UrlPolicy.videoId(page.url);
         if (wantedId.isEmpty()) throw new ResolveException("UNKNOWN_VIDEO_URL", "Douyin 공개 페이지에 연결됐지만 영상 번호가 있는 주소 형식을 식별하지 못했어요.");
         parsePage(page.body);
-        if (match == null) {
-            List<Variant> rendered = renderVideo(page.url);
-            if (!rendered.isEmpty()) return chooseBest(rendered, "웹 플레이어 공개 스트림");
-            throw new ResolveException("NO_DIRECT_MEDIA", "Douyin 페이지는 열렸지만 영상 재생 주소를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.");
-        }
-        JSONObject video = match.optJSONObject("video");
-        if (video == null) throw new ResolveException("NO_DIRECT_MEDIA", "이 게시물에는 공개 동영상 스트림이 없어요.");
         List<Variant> variants = new ArrayList<>();
-        JSONArray rates = video.optJSONArray("bit_rate");
-        if (rates != null) for (int i = 0; i < rates.length(); i++) {
-            JSONObject rate = rates.optJSONObject(i); if (rate == null) continue;
-            addVariants(variants, rate.optJSONObject("play_addr"), rate.optInt("width", video.optInt("width")), rate.optInt("height", video.optInt("height")), rate.optInt("FPS", rate.optInt("fps")), rate.optString("gear_name"));
+        if (match != null) {
+            JSONObject video = match.optJSONObject("video");
+            if (video != null) {
+                JSONArray rates = video.optJSONArray("bit_rate");
+                if (rates != null) for (int i = 0; i < rates.length(); i++) {
+                    JSONObject rate = rates.optJSONObject(i); if (rate == null) continue;
+                    addVariants(variants, rate.optJSONObject("play_addr"), rate.optInt("width", video.optInt("width")), rate.optInt("height", video.optInt("height")), rate.optInt("FPS", rate.optInt("fps")), rate.optString("gear_name"));
+                }
+                addVariants(variants, video.optJSONObject("play_addr"), video.optInt("width"), video.optInt("height"), video.optInt("fps"), "");
+            }
         }
-        addVariants(variants, video.optJSONObject("play_addr"), video.optInt("width"), video.optInt("height"), video.optInt("fps"), "");
-        if (variants.isEmpty()) throw new ResolveException("NO_DIRECT_MEDIA", "공개 페이지에서 재생 가능한 영상 파일을 찾지 못했어요.");
-        return chooseBest(variants, "공개 스트림");
+        if (!variants.isEmpty()) return chooseBest(variants, "공개 스트림");
+        List<Variant> rendered = renderVideo(page.url);
+        if (!rendered.isEmpty()) return chooseBest(rendered, "웹 플레이어 공개 스트림");
+        throw new ResolveException("NO_DIRECT_MEDIA", "Douyin 페이지는 열렸지만 영상 재생 주소를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.");
     }
     private Result chooseBest(List<Variant> variants, String fallbackNote) throws Exception {
         if (variants.isEmpty()) throw new ResolveException("NO_DIRECT_MEDIA", "공개 페이지에서 재생 가능한 영상 파일을 찾지 못했어요.");
@@ -170,7 +170,7 @@ public final class PublicPostResolver {
         poll[0] = () -> {
             WebView view = active.get();
             if (view == null) return;
-            String script = "(function(){var id='" + wantedId + "',out=[];function add(u,w,h){try{var x=new URL(u,location.href);if(/^https?:$/.test(x.protocol)&&(x.searchParams.get('__vid')===id||/douyinvod|zjcdn|bytecdn/.test(x.hostname)))out.push({url:x.href,width:w||0,height:h||0})}catch(e){}}Array.from(document.querySelectorAll('video')).forEach(function(v){add(v.currentSrc||v.src,v.videoWidth,v.videoHeight)});performance.getEntriesByType('resource').forEach(function(e){add(e.name,0,0)});return JSON.stringify(out);})()";
+            String script = "(function(){var id='" + wantedId + "',out=[];function add(u,w,h){try{var x=new URL(u,location.href);if(/^https?:$/.test(x.protocol)&&(x.searchParams.get('__vid')===id||/douyinvod|zjcdn|bytecdn/.test(x.hostname)))out.push({url:x.href,width:w||0,height:h||0})}catch(e){}}Array.from(document.querySelectorAll('video')).forEach(function(v){add(v.currentSrc||v.src,v.videoWidth,v.videoHeight)});var p=window.performance&&window.performance.getEntriesByType?window.performance.getEntriesByType('resource'):[];p.forEach(function(e){add(e.name,0,0)});return JSON.stringify(out);})()";
             view.evaluateJavascript(script, encoded -> {
                 try {
                     Object decoded = new JSONTokener(encoded == null ? "null" : encoded).nextValue();
@@ -196,7 +196,7 @@ public final class PublicPostResolver {
                 WebView view = new WebView(activity);
                 active.set(view);
                 WebSettings settings = view.getSettings();
-                settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setMediaPlaybackRequiresUserGesture(false);
+                settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setMediaPlaybackRequiresUserGesture(false); settings.setUserAgentString(UA);
                 view.setAlpha(0.01f);
                 view.setWebViewClient(new WebViewClient() {
                     @Override public boolean shouldOverrideUrlLoading(WebView v, android.webkit.WebResourceRequest request) {
@@ -208,7 +208,7 @@ public final class PublicPostResolver {
                     }
                 });
                 FrameLayout root = activity.findViewById(android.R.id.content);
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(2, 2, Gravity.TOP | Gravity.LEFT);
+                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(360, 640, Gravity.TOP | Gravity.LEFT);
                 root.addView(view, params);
                 view.loadUrl(pageUrl);
             } catch (Exception e) { cleanup.run(); }
