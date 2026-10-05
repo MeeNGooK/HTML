@@ -60,8 +60,8 @@ public final class PublicPostResolver {
         if (wantedId.isEmpty()) throw new ResolveException("UNKNOWN_VIDEO_URL", "Douyin 공개 페이지에 연결됐지만 영상 번호가 있는 주소 형식을 식별하지 못했어요.");
         parsePage(page.body);
         if (match == null) {
-            JSONObject rendered = renderVideo(page.url);
-            if (rendered != null) return result(rendered.optString("url"), rendered.optInt("width"), rendered.optInt("height"), 0, "공개 재생 스트림");
+            List<Variant> rendered = renderVideo(page.url);
+            if (!rendered.isEmpty()) return chooseBest(rendered, "웹 플레이어 공개 스트림");
             throw new ResolveException("NO_DIRECT_MEDIA", "Douyin 페이지는 열렸지만 영상 재생 주소를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.");
         }
         JSONObject video = match.optJSONObject("video");
@@ -74,10 +74,14 @@ public final class PublicPostResolver {
         }
         addVariants(variants, video.optJSONObject("play_addr"), video.optInt("width"), video.optInt("height"), video.optInt("fps"), "");
         if (variants.isEmpty()) throw new ResolveException("NO_DIRECT_MEDIA", "공개 페이지에서 재생 가능한 영상 파일을 찾지 못했어요.");
+        return chooseBest(variants, "공개 스트림");
+    }
+    private Result chooseBest(List<Variant> variants, String fallbackNote) throws Exception {
+        if (variants.isEmpty()) throw new ResolveException("NO_DIRECT_MEDIA", "공개 페이지에서 재생 가능한 영상 파일을 찾지 못했어요.");
         boolean has60 = variants.stream().anyMatch(v -> v.fps >= 60);
         variants.sort(Comparator.comparing((Variant v) -> v.fps >= 60).thenComparingLong(v -> (long)v.width * v.height).thenComparingInt(v -> v.fps));
         Variant best = variants.get(variants.size() - 1);
-        return result(best.url, best.width, best.height, best.fps, has60 ? "60fps 우선" : "공개 최고 화질");
+        return result(best.url, best.width, best.height, best.fps, has60 ? "60fps 우선" : fallbackNote + " · 최고 화질");
     }
     private Result result(String url, int width, int height, int fps, String note) throws Exception {
         if (!UrlPolicy.isMedia(url)) throw new ResolveException("UNTRUSTED_MEDIA", "영상 서버 주소를 확인하지 못했어요.");
@@ -140,12 +144,18 @@ public final class PublicPostResolver {
             if (data.find()) try { String decoded = URLDecoder.decode(data.group(1), "UTF-8"); walk(new JSONTokener(decoded).nextValue(), 0); } catch (Exception ignored) { }
         }
     }
-    private JSONObject renderVideo(String pageUrl) throws Exception {
-        if (!(context instanceof Activity)) return null;
+    /**
+     * The rendered page often loads more than the video element's current source.
+     * Read both the element and the browser performance log so a public high-frame-rate
+     * variant is not discarded just because the player initially picked a lower stream.
+     */
+    private List<Variant> renderVideo(String pageUrl) throws Exception {
+        if (!(context instanceof Activity)) return java.util.Collections.emptyList();
         Activity activity = (Activity)context;
         CountDownLatch done = new CountDownLatch(1);
-        AtomicReference<JSONObject> found = new AtomicReference<>();
+        List<Variant> found = java.util.Collections.synchronizedList(new ArrayList<>());
         AtomicReference<WebView> active = new AtomicReference<>();
+        final long[] lastNewCandidate = {0L};
         Handler handler = new Handler(Looper.getMainLooper());
         Runnable cleanup = () -> {
             WebView view = active.getAndSet(null);
@@ -159,20 +169,26 @@ public final class PublicPostResolver {
         Runnable[] poll = new Runnable[1];
         poll[0] = () -> {
             WebView view = active.get();
-            if (view == null || found.get() != null) return;
-            String script = "(function(){var a=Array.from(document.querySelectorAll('video'));var id='" + wantedId + "';var v=a.find(function(x){try{return new URL(x.currentSrc||x.src,location.href).searchParams.get('__vid')===id&&x.readyState>=2}catch(e){return false}})||a.find(function(x){return x.readyState>=2&&x.videoWidth>0&&/^https?:/.test(x.currentSrc||x.src)});return JSON.stringify(v?{url:v.currentSrc||v.src,width:v.videoWidth||0,height:v.videoHeight||0}:{});})()";
+            if (view == null) return;
+            String script = "(function(){var id='" + wantedId + "',out=[];function add(u,w,h){try{var x=new URL(u,location.href);if(/^https?:$/.test(x.protocol)&&(x.searchParams.get('__vid')===id||/douyinvod|zjcdn|bytecdn/.test(x.hostname)))out.push({url:x.href,width:w||0,height:h||0})}catch(e){}}Array.from(document.querySelectorAll('video')).forEach(function(v){add(v.currentSrc||v.src,v.videoWidth,v.videoHeight)});performance.getEntriesByType('resource').forEach(function(e){add(e.name,0,0)});return JSON.stringify(out);})()";
             view.evaluateJavascript(script, encoded -> {
                 try {
                     Object decoded = new JSONTokener(encoded == null ? "null" : encoded).nextValue();
                     if (decoded instanceof String) {
-                        JSONObject candidate = new JSONObject((String)decoded);
-                        if (UrlPolicy.isMedia(candidate.optString("url"))) {
-                            found.set(candidate); cleanup.run(); return;
+                        JSONArray candidates = new JSONArray((String)decoded);
+                        for (int i = 0; i < candidates.length(); i++) {
+                            JSONObject candidate = candidates.optJSONObject(i);
+                            if (candidate == null) continue;
+                            String url = candidate.optString("url");
+                            if (UrlPolicy.isMedia(url) && addRenderedVariant(found, url, candidate.optInt("width"), candidate.optInt("height"))) {
+                                lastNewCandidate[0] = System.currentTimeMillis();
+                            }
                         }
                     }
                 } catch (Exception ignored) { }
-                if (System.currentTimeMillis() >= deadline) cleanup.run();
-                else handler.postDelayed(poll[0], 500);
+                long now = System.currentTimeMillis();
+                if (now >= deadline || (!found.isEmpty() && lastNewCandidate[0] > 0 && now - lastNewCandidate[0] >= 2200)) cleanup.run();
+                else handler.postDelayed(poll[0], 400);
             });
         };
         handler.post(() -> {
@@ -199,7 +215,18 @@ public final class PublicPostResolver {
         });
         long remaining = Math.max(1, Math.min(35000, deadline - System.currentTimeMillis()));
         if (!done.await(remaining, TimeUnit.MILLISECONDS)) handler.post(cleanup);
-        return found.get();
+        return found;
+    }
+    private static boolean addRenderedVariant(List<Variant> out, String url, int width, int height) {
+        synchronized (out) {
+            for (Variant value : out) if (value.url.equals(url)) return false;
+            Matcher fps = Pattern.compile("(?i)(?:^|[?&_/-])(?:fps=?)?(60|120)(?:fps|[&_/-]|$)").matcher(url);
+            int frameRate = fps.find() ? Integer.parseInt(fps.group(1)) : 0;
+            Matcher size = Pattern.compile("(?i)(?:^|[?&_/-])(\\d{3,4})[xX](\\d{3,4})(?:[?&_/-]|$)").matcher(url);
+            if (size.find()) { width = Math.max(width, Integer.parseInt(size.group(1))); height = Math.max(height, Integer.parseInt(size.group(2))); }
+            out.add(new Variant(url, width, height, frameRate));
+            return true;
+        }
     }
     private void walk(Object value, int depth) {
         if (match != null || depth > 45 || ++visited > 150000) return;
